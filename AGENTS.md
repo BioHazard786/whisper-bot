@@ -10,29 +10,30 @@ Psst! enables Telegram users to send confidential, target-restricted, and self-d
 
 1. **Inline Query Mode (`@psst_whisper_bot`)**: Works anywhere across Telegram (direct messages, channels, and groups) without needing to add the bot as an administrator.
 2. **Group Chat Ephemeral Mode (`/whisper`, `/psst`)**: Uses native Telegram Bot API **Ephemeral Commands** and **Ephemeral Messages** directly inside group chats.
+3. **Guest Mode (`@psst_whisper_bot <text>`)**: Introduced in Telegram Bot API 10.0, enables the bot to participate in groups/chats **without joining**, receiving mentions and replies with full context (`reply_to_message`).
 
 ### High-Level Architecture Flow
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Telegram Client (User)                          │
-└────────────┬───────────────────────────────────────────┬───────────────┘
-             │                                           │
-  (Inline Mode: @bot @user text)               (Group Command: /whisper)
-             │                                           │
-             ▼                                           ▼
-┌─────────────────────────┐                 ┌────────────────────────────┐
-│      inline_router      │                 │        group_router        │
-│ (Parses & saves whisper │                 │ (Ephemeral command intake, │
-│  generates locked cards)│                 │  posts locked group prompt)│
-└────────────┬────────────┘                 └────────────┬───────────────┘
-             │                                           │
-             └─────────────────────┬─────────────────────┘
-                                   ▼
-                   ┌───────────────────────────────┐
-                   │       callbacks_router        │
-                   │  [ 🔒 Open ] / [ 🗑️ Delete ]   │
-                   └───────────────┬───────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 Telegram Client (User)                                  │
+└────────────┬───────────────────────────────┬────────────────────────────┬───────────────┘
+             │                               │                            │
+  (Inline Mode: @bot @user text)   (Group Command: /whisper)     (Guest Mention / Reply)
+             │                               │                            │
+             ▼                               ▼                            ▼
+┌─────────────────────────┐     ┌────────────────────────────┐  ┌─────────────────────────┐
+│      inline_router      │     │        group_router        │  │      guest_router       │
+│ (Parses & saves whisper │     │ (Ephemeral command intake, │  │ (Receives guest_message,│
+│  generates locked cards)│     │  posts locked group prompt)│  │  supports reply_to)     │
+└────────────┬────────────┘     └────────────┬───────────────┘  └───────────┬─────────────┘
+             │                               │                              │
+             └───────────────────────┬───────┴──────────────────────────────┘
+                                     ▼
+                     ┌───────────────────────────────┐
+                     │       callbacks_router        │
+                     │  [ 🔒 Open ] / [ 🗑️ Delete ]   │
+                     └───────────────┬───────────────┘
                                    │
                    ┌───────────────┴───────────────┐
                    ▼                               ▼

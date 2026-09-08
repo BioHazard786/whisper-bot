@@ -55,7 +55,7 @@ async def handle_inline_query(
         desc = (
             "Missing secret message text"
             if parsed.has_targets
-            else "Specify a recipient username (e.g. @username)"
+            else "Specify recipient @username or User IDs (e.g. 12345678)"
         )
         article = InlineQueryResultArticle(
             id="hint_invalid",
@@ -64,7 +64,8 @@ async def handle_inline_query(
             input_message_content=InputTextMessageContent(
                 message_text=(
                     "💡 **Format Reminder:**\n"
-                    "`@psst_whisper_bot @username secret message`\n\n"
+                    "`@psst_whisper_bot @username secret message`\n"
+                    "`@psst_whisper_bot 12345678 87654321 secret message`\n\n"
                     "For one-time self-destructing whispers:\n"
                     "`@psst_whisper_bot !1 @username secret message`"
                 ),

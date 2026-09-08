@@ -1,14 +1,17 @@
 # Psst! 🤫 — Modern Telegram Whisper Bot
 
-A high-performance, privacy-focused Telegram Whisper Bot built with **Python 3.11+**, **`aiogram` v3**, and **Telegram Bot API Ephemeral Messages**.
+A high-performance, privacy-focused Telegram Whisper Bot built with **Python 3.11+**, **`aiogram` v3**, **Telegram Bot API 10.0 Guest Mode**, and **Telegram Bot API Ephemeral Messages**.
 
 ---
 
 ## ✨ Features
 
-- **Inline Whispers (Any Chat)**: Send locked whispers in group chats, private messages, or channels without needing bot admin rights (`@psst_whisper_bot @recipient secret`).
-- **Multi-Recipient Whispers (Normal & Inline)**: Whisper to multiple targets at once (`@alice @bob @charlie secret`). Supported across both inline and group modes!
-- **One-Time Self-Destruct Whispers**: Whispers that permanently destroy themselves once opened by the intended recipient(s).
+- **Guest Mode (Bot API 10.0)**: Summon the bot in any group or private chat **without joining**! Simply mention the bot or reply to any message.
+- **Inline Whispers (Any Chat)**: Send locked whisper cards anywhere across Telegram via `@psst_whisper_bot @recipient secret`.
+- **Reply-to-Whisper**: Whisper to anyone by simply replying to their message—even if they don't have a Telegram username!
+- **Multi-Recipient Whispers**: Whisper to multiple users at once (`@alice @bob @charlie secret` or `12345678 87654321 secret`).
+- **User IDs & Telegram Links**: Full support for raw numeric user IDs (`12345678`), ID prefixes (`id:12345678`), and deep links (`[Name](tg://user?id=12345678)`).
+- **One-Time Self-Destruct Whispers**: Whispers that permanently destroy themselves once opened by the intended recipient(s) (`!1`).
 - **Telegram Bot API Ephemeral Commands**: Group commands registered with `is_ephemeral=True` so your `/whisper` commands remain invisible to other group members.
 - **Telegram Bot API Ephemeral Delivery**: Delivers the whisper directly onto the recipient's timeline in groups using `ephemeral_message_parameters`.
 - **Private Fallback Modals**: Seamless fallback to Telegram secure alert popups for inline messages and legacy clients.
@@ -18,26 +21,75 @@ A high-performance, privacy-focused Telegram Whisper Bot built with **Python 3.1
 
 ---
 
-## 👥 Multi-Recipient Whispers
+## ⚙️ Required @BotFather Setup
 
-Psst! natively supports multiple recipients in **both** operational modes:
+To enable all features of Psst!, make sure to configure both **Inline Mode** and **Guest Mode** in [@BotFather](https://t.me/botfather):
 
-### 1. Inline Mode (`@psst_whisper_bot`)
-```
-@psst_whisper_bot @alice @bob @charlie The server password is secret
-```
-- A locked card is generated for `@alice`, `@bob`, and `@charlie`.
-- All three authorized recipients (and the sender) can open the whisper.
-- Unauthorized users will be blocked with an alert.
-- For **one-time whispers** (`!1 @alice @bob`), each recipient can view their copy once; the whisper permanently self-destructs once all specified recipients have read it!
+### 1. Enable Inline Mode
+Inline mode allows users to send whispers anywhere across Telegram by typing `@psst_whisper_bot`:
+1. Message [@BotFather](https://t.me/botfather) and send `/setinline`.
+2. Select your bot.
+3. Enter placeholder text, for example: `Type: @recipient secret message`.
 
-### 2. Group Command Mode (`/whisper`)
+### 2. Enable Guest Mode (Bot API 10.0+)
+Guest mode allows the bot to receive mentions and reply context in chats **without joining as a member**:
+1. In [@BotFather](https://t.me/botfather), send `/mybots` and choose your bot.
+2. Go to **Bot Settings** (or open the BotFather Mini App).
+3. Select **Guest Mode** and toggle it to **Enabled**.
+
+---
+
+## 📖 Operational Modes
+
+Psst! works across three distinct modes:
+
+### 1. Guest Mode (`@psst_whisper_bot`) — No Joining Needed!
+The bot participates in any group or private chat without being added as a member:
+- **Reply to Any Message (Works for users with NO username):**
+  Swipe right to reply to anyone's message and type:
+  ```text
+  @psst_whisper_bot secret message
+  @psst_whisper_bot !1 secret message (self-destructs after reading)
+  ```
+- **Mention Recipients Directly:**
+  ```text
+  @psst_whisper_bot @bob meet me after work
+  ```
+
+### 2. Inline Query Mode (`@psst_whisper_bot`)
+Works anywhere across Telegram by typing in the chat bar and selecting a card:
+```text
+@psst_whisper_bot @alice @bob The secret password is 1234
+@psst_whisper_bot 12345678 87654321 Meeting at dusk
+@psst_whisper_bot !1 @alice Self-destructing credentials
 ```
-/whisper @alice @bob The meeting link is in your inbox
+
+### 3. Group Command Mode (`/whisper`)
+For groups where Psst! is added as a member:
+```text
+/whisper @alice @bob The meeting link is ready
+/whisper 12345678,87654321 Sensitive project notes
 ```
-- Sent invisibly using Telegram Ephemeral Commands.
-- An ephemeral prompt is posted for `@alice` and `@bob`.
-- When either recipient clicks the button, Telegram renders the message on that specific recipient's chat timeline ephemerally!
+- Commands are invisible to other members thanks to Bot API `is_ephemeral=True`.
+- Whispers are delivered directly onto the recipient's timeline using `ephemeral_message_parameters`.
+- You can also reply to any message in the group with `/whisper your secret`.
+
+---
+
+## 👥 Advanced Targeting & Formats
+
+You can mix and match targets in any combination:
+
+| Format | Example | Description |
+|---|---|---|
+| **Multiple Usernames** | `@alice @bob @charlie` | Multiple username recipients |
+| **Numeric User IDs** | `12345678 87654321` | Targets users by immutable Telegram ID |
+| **Comma-separated IDs** | `12345678,87654321` | Comma-separated user IDs |
+| **Prefixed IDs** | `id:12345678 uid:87654321` | Explicit ID prefixes |
+| **Telegram Deep Links** | `[John](tg://user?id=12345678)` | Mention links for users without usernames |
+| **Mixed Targets** | `@alice 12345678 id:99999999` | Mix usernames and IDs freely |
+| **One-Time Flag** | `!1 @alice secret` | Self-destructs permanently after opening |
+| **Hide Sender Flag** | `!nosender @alice secret` | Disallows sender from re-opening |
 
 ---
 

@@ -9,7 +9,13 @@ from aiogram.enums import ParseMode
 from aiogram.types import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeDefault
 
 from whisper_bot.config import get_settings
-from whisper_bot.handlers import callbacks_router, common_router, group_router, inline_router
+from whisper_bot.handlers import (
+    callbacks_router,
+    common_router,
+    group_router,
+    guest_router,
+    inline_router,
+)
 from whisper_bot.logger import get_logger, setup_logging
 from whisper_bot.middlewares import StructlogEventMiddleware, ThrottlingMiddleware
 from whisper_bot.services.storage import MemoryWhisperStorage
@@ -88,6 +94,7 @@ async def run_bot() -> None:
     dp.include_router(inline_router)
     dp.include_router(callbacks_router)
     dp.include_router(group_router)
+    dp.include_router(guest_router)
 
     # Register commands with Telegram Bot API
     await setup_bot_commands(bot)

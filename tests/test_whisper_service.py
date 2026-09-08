@@ -215,3 +215,48 @@ async def test_multi_recipient_one_time(whisper_service: WhisperService) -> None
     )
     assert auth_b3 is False
     assert status_b3 == "destroyed"
+
+
+@pytest.mark.asyncio
+async def test_mix_match_usernames_and_user_ids(
+    whisper_service: WhisperService,
+) -> None:
+    whisper = await whisper_service.create_whisper(
+        sender_id=1,
+        sender_first_name="Alice",
+        sender_username="alice",
+        text="Mix match secret payload",
+        target_usernames={"bob"},
+        target_user_ids={88888888},
+        is_one_time=True,
+    )
+
+    # Bob (username target) views
+    _, auth_bob, content_bob = await whisper_service.access_whisper(
+        whisper_id=whisper.id,
+        user_id=2,
+        username="bob",
+    )
+    assert auth_bob is True
+    assert content_bob == "Mix match secret payload"
+    assert whisper.is_destroyed is False
+
+    # Unauthorized third-party denied
+    _, auth_intruder, status_intruder = await whisper_service.access_whisper(
+        whisper_id=whisper.id,
+        user_id=999,
+        username="intruder",
+    )
+    assert auth_intruder is False
+    assert status_intruder == "unauthorized"
+
+    # User 88888888 (ID target) views -> now both have viewed, so destroyed
+    _, auth_id, content_id = await whisper_service.access_whisper(
+        whisper_id=whisper.id,
+        user_id=88888888,
+        username=None,
+    )
+    assert auth_id is True
+    assert content_id == "Mix match secret payload"
+    assert whisper.is_destroyed is True
+
