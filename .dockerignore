@@ -1,0 +1,25 @@
+# Git & IDE
+.git
+.gitignore
+.idea
+.vscode
+
+# Environments & dependencies
+.venv
+.env
+.env.*
+!.env.sample
+
+# Python bytecode & caches
+__pycache__
+*.py[cod]
+*$py.class
+*.egg-info
+dist
+build
+
+# Test & lint caches
+.pytest_cache
+.ruff_cache
+.pyright
+tests

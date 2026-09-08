@@ -1,0 +1,21 @@
+# Environment variables (secrets)
+.env
+.env.*
+!.env.sample
+!.env.example
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+
+# Caches and tooling artifacts
+.pytest_cache/
+.ruff_cache/
+.pyright/
