@@ -52,23 +52,51 @@ async def handle_inline_query(
 
     # If no recipient or no message text: show guidance prompt
     if not parsed.is_valid:
-        desc = (
-            "Missing secret message text"
-            if parsed.has_targets
-            else "Specify recipient @username or User IDs (e.g. 12345678)"
-        )
+        if not parsed.has_targets:
+            await inline_query.answer(
+                [
+                    InlineQueryResultArticle(
+                        id="hint_guest_reply",
+                        title="💬 Replying to someone? Just press Send (➤)!",
+                        description="Do NOT tap this popup. Press the blue Send button to whisper via Guest Mode.",
+                        input_message_content=InputTextMessageContent(
+                            message_text=(
+                                "💡 **Tip for Replying in Chats:**\n\n"
+                                "When replying to a user with `@psst_whisper_bot secret message`, "
+                                "**do not tap this inline popup**.\n\n"
+                                "Simply finish typing and press the regular **Send button (➤)** to send it via Guest Mode!"
+                            ),
+                            parse_mode="Markdown",
+                        ),
+                    ),
+                    InlineQueryResultArticle(
+                        id="hint_inline_format",
+                        title="⚠️ Or specify a recipient for Inline Mode",
+                        description="Type: @psst_whisper_bot @recipient secret message",
+                        input_message_content=InputTextMessageContent(
+                            message_text=(
+                                "💡 **Inline Mode Format Reminder:**\n"
+                                "`@psst_whisper_bot @username secret message`\n"
+                                "`@psst_whisper_bot 12345678 87654321 secret message`\n\n"
+                                "For one-time self-destructing whispers:\n"
+                                "`@psst_whisper_bot !1 @username secret message`"
+                            ),
+                            parse_mode="Markdown",
+                        ),
+                    ),
+                ],
+                cache_time=1,
+                is_personal=True,
+            )
+            return
+
+        # Has targets but missing message text
         article = InlineQueryResultArticle(
-            id="hint_invalid",
+            id="hint_missing_text",
             title="⚠️ Incomplete Whisper Query",
-            description=desc,
+            description="Missing secret message text. Type your secret after the recipient.",
             input_message_content=InputTextMessageContent(
-                message_text=(
-                    "💡 **Format Reminder:**\n"
-                    "`@psst_whisper_bot @username secret message`\n"
-                    "`@psst_whisper_bot 12345678 87654321 secret message`\n\n"
-                    "For one-time self-destructing whispers:\n"
-                    "`@psst_whisper_bot !1 @username secret message`"
-                ),
+                message_text="💡 Please type your secret message after the recipient username or ID.",
                 parse_mode="Markdown",
             ),
         )
