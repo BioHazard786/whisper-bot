@@ -33,6 +33,12 @@ class StructlogEventMiddleware(BaseMiddleware):
             user = getattr(event.event, "from_user", None)
             if user:
                 user_id = user.id
+            logger.info(
+                "incoming_telegram_update",
+                update_id=update_id,
+                event_type=event_type,
+                user_id=user_id,
+            )
 
         structlog.contextvars.clear_contextvars()
         if update_id is not None:
@@ -43,7 +49,7 @@ class StructlogEventMiddleware(BaseMiddleware):
         try:
             result = await handler(event, data)
             elapsed_ms = (time.perf_counter() - start_time) * 1000
-            logger.debug(
+            logger.info(
                 "telegram_event_processed",
                 event_type=event_type,
                 latency_ms=round(elapsed_ms, 2),

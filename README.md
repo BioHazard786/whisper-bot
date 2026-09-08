@@ -21,21 +21,27 @@ A high-performance, privacy-focused Telegram Whisper Bot built with **Python 3.1
 
 ---
 
-## ⚙️ Required @BotFather Setup
+## ⚙️ @BotFather Configuration: Guest Mode vs. Inline Mode
 
-To enable all features of Psst!, make sure to configure both **Inline Mode** and **Guest Mode** in [@BotFather](https://t.me/botfather):
+> [!IMPORTANT]
+> **Guest Mode and Inline Mode are Mutually Exclusive in Telegram Clients!**
+> In Telegram clients, typing `@bot_name` in the chat input field behaves differently based on your bot's settings in [@BotFather](https://t.me/botfather):
+> - **To use GUEST MODE**: **Inline Mode MUST be TURNED OFF**, and **Guest Mode MUST be ENABLED**.
+>   When Inline Mode is disabled, Telegram allows users to type `@psst_whisper_bot secret` and press **Send** (or reply to any message) in chats where the bot is not a member. Telegram delivers these interactions via native `guest_message` updates!
+> - **To use INLINE MODE**: **Inline Mode MUST be ENABLED**, and **Guest Mode MUST be DISABLED**.
+>   When Inline Mode is active, typing `@psst_whisper_bot` immediately opens Telegram's inline query dropdown menu (`inline_query` updates), and Telegram **never** delivers `guest_message` updates.
+> - A single bot token cannot run both simultaneously in the client because typing `@bot` either activates inline search OR sends a chat mention.
 
-### 1. Enable Inline Mode
-Inline mode allows users to send whispers anywhere across Telegram by typing `@psst_whisper_bot`:
+### Option 1: Configuring for Guest Mode (Recommended for Chats Without Adding Bot)
+1. Message [@BotFather](https://t.me/botfather) and send `/mybots` -> Select your bot.
+2. Go to **Bot Settings** -> **Inline Mode** -> Select **Turn Off** (or send `/setinline` and choose disable/turn off).
+3. Under **Bot Settings** (or the BotFather Mini App), select **Guest Mode** -> toggle to **Enabled**.
+4. *(Recommended)* Under **Bot Settings** -> **Group Privacy**, toggle privacy to **Turn off** so the bot can also read mentions when added to groups as a regular member.
+
+### Option 2: Configuring for Inline Mode (Interactive Popup Cards)
 1. Message [@BotFather](https://t.me/botfather) and send `/setinline`.
-2. Select your bot.
-3. Enter placeholder text, for example: `Type: @recipient secret message`.
-
-### 2. Enable Guest Mode (Bot API 10.0+)
-Guest mode allows the bot to receive mentions and reply context in chats **without joining as a member**:
-1. In [@BotFather](https://t.me/botfather), send `/mybots` and choose your bot.
-2. Go to **Bot Settings** (or open the BotFather Mini App).
-3. Select **Guest Mode** and toggle it to **Enabled**.
+2. Select your bot and enter placeholder text (e.g. `Type: @recipient secret message`).
+3. Under **Bot Settings**, ensure **Guest Mode** is toggled **Off**.
 
 ---
 

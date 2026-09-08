@@ -113,9 +113,13 @@ async def run_bot() -> None:
             supports_inline=bot_info.supports_inline_queries,
         )
 
+        # Resolve update types used by handlers and log them
+        allowed_updates = dp.resolve_used_update_types()
+        logger.info("polling_with_allowed_updates", allowed_updates=allowed_updates)
+
         # Drop pending updates before polling to avoid processing backlog
         await bot.delete_webhook(drop_pending_updates=True)
-        await dp.start_polling(bot)
+        await dp.start_polling(bot, allowed_updates=allowed_updates)
     finally:
         logger.info("shutting_down_bot")
         cleanup_task.cancel()

@@ -1,8 +1,10 @@
 """Common handlers: /start, /help, /stats, /ping."""
 
+import html
 import time
 
 from aiogram import F, Router
+from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     CallbackQuery,
@@ -55,20 +57,21 @@ def get_help_keyboard() -> InlineKeyboardMarkup:
 @common_router.message(CommandStart())
 async def handle_start(message: Message) -> None:
     """Handle /start command in private chats."""
-    first_name = message.from_user.first_name if message.from_user else "Friend"
+    raw_name = message.from_user.first_name if message.from_user else "Friend"
+    first_name = html.escape(raw_name, quote=False)
     text = (
-        f"🤫 **Hey {first_name}, welcome to Psst!**\n\n"
-        "I am your privacy-first **Whisper Bot**. Send secret, "
+        f"🤫 <b>Hey {first_name}, welcome to Psst!</b>\n\n"
+        "I am your privacy-first <b>Whisper Bot</b>. Send secret, "
         "self-destructing, and ephemeral messages anywhere across Telegram.\n\n"
-        "🔒 **Ways to Whisper:**\n"
-        "• **Guest Mode (No Joining!):** Reply to anyone or mention `@psst_whisper_bot` in any chat\n"
-        "• **Inline Whispers:** Type `@psst_whisper_bot @user secret` in any chat\n"
-        "• **Group Commands:** Invisible `/whisper @user secret` commands\n"
-        "• **User IDs & No-Username:** Whisper using numeric IDs (`12345678`) or by replying\n"
-        "• **One-Time Whispers:** Add `!1` to permanently self-destruct after reading\n\n"
+        "🔒 <b>Ways to Whisper:</b>\n"
+        "• <b>Guest Mode (No Joining!):</b> Reply to anyone or mention <code>@psst_whisper_bot</code> in any chat\n"
+        "• <b>Inline Whispers:</b> Type <code>@psst_whisper_bot @user secret</code> in any chat\n"
+        "• <b>Group Commands:</b> Invisible <code>/whisper @user secret</code> commands\n"
+        "• <b>User IDs &amp; No-Username:</b> Whisper using numeric IDs (<code>12345678</code>) or by replying\n"
+        "• <b>One-Time Whispers:</b> Add <code>!1</code> to permanently self-destruct after reading\n\n"
         "Tap below to send your first whisper!"
     )
-    await message.answer(text, reply_markup=get_start_keyboard(), parse_mode="Markdown")
+    await message.answer(text, reply_markup=get_start_keyboard(), parse_mode=ParseMode.HTML)
 
 
 @common_router.message(Command("help"))

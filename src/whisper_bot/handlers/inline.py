@@ -1,8 +1,10 @@
 """Inline query handlers for creating whispers anywhere in Telegram."""
 
+import html
 import secrets
 
 from aiogram import Router
+from aiogram.enums import ParseMode
 from aiogram.types import (
     ChosenInlineResult,
     InlineKeyboardButton,
@@ -28,6 +30,12 @@ async def handle_inline_query(
     """Process inline queries to generate whisper message cards."""
     raw = inline_query.query.strip()
     user = inline_query.from_user
+    logger.info(
+        "inline_query_received",
+        user_id=user.id,
+        chat_type=inline_query.chat_type,
+        raw_query=raw,
+    )
 
     # If query is completely empty: show usage instructions
     if not raw:
@@ -37,12 +45,12 @@ async def handle_inline_query(
             description="Type: @recipient secret message",
             input_message_content=InputTextMessageContent(
                 message_text=(
-                    "🤫 **How to send a Whisper with Psst!**\n\n"
+                    "🤫 <b>How to send a Whisper with Psst!</b>\n\n"
                     "Type in any chat:\n"
-                    "`@psst_whisper_bot @username your secret message`\n\n"
-                    "Only `@username` will be able to read what you wrote!"
+                    "<code>@psst_whisper_bot @username your secret message</code>\n\n"
+                    "Only <code>@username</code> will be able to read what you wrote!"
                 ),
-                parse_mode="Markdown",
+                parse_mode=ParseMode.HTML,
             ),
         )
         await inline_query.answer([article], cache_time=1, is_personal=True)
@@ -53,41 +61,22 @@ async def handle_inline_query(
     # If no recipient or no message text: show guidance prompt
     if not parsed.is_valid:
         if not parsed.has_targets:
-            await inline_query.answer(
-                [
-                    InlineQueryResultArticle(
-                        id="hint_guest_reply",
-                        title="💬 Replying to someone? Just press Send (➤)!",
-                        description="Do NOT tap this popup. Press the blue Send button to whisper via Guest Mode.",
-                        input_message_content=InputTextMessageContent(
-                            message_text=(
-                                "💡 **Tip for Replying in Chats:**\n\n"
-                                "When replying to a user with `@psst_whisper_bot secret message`, "
-                                "**do not tap this inline popup**.\n\n"
-                                "Simply finish typing and press the regular **Send button (➤)** to send it via Guest Mode!"
-                            ),
-                            parse_mode="Markdown",
-                        ),
+            article = InlineQueryResultArticle(
+                id="hint_inline_format",
+                title="⚠️ Specify a recipient",
+                description="Type: @psst_whisper_bot @recipient secret message",
+                input_message_content=InputTextMessageContent(
+                    message_text=(
+                        "💡 <b>Inline Mode Format Reminder:</b>\n"
+                        "<code>@psst_whisper_bot @username secret message</code>\n"
+                        "<code>@psst_whisper_bot 12345678 87654321 secret message</code>\n\n"
+                        "For one-time self-destructing whispers:\n"
+                        "<code>@psst_whisper_bot !1 @username secret message</code>"
                     ),
-                    InlineQueryResultArticle(
-                        id="hint_inline_format",
-                        title="⚠️ Or specify a recipient for Inline Mode",
-                        description="Type: @psst_whisper_bot @recipient secret message",
-                        input_message_content=InputTextMessageContent(
-                            message_text=(
-                                "💡 **Inline Mode Format Reminder:**\n"
-                                "`@psst_whisper_bot @username secret message`\n"
-                                "`@psst_whisper_bot 12345678 87654321 secret message`\n\n"
-                                "For one-time self-destructing whispers:\n"
-                                "`@psst_whisper_bot !1 @username secret message`"
-                            ),
-                            parse_mode="Markdown",
-                        ),
-                    ),
-                ],
-                cache_time=1,
-                is_personal=True,
+                    parse_mode=ParseMode.HTML,
+                ),
             )
+            await inline_query.answer([article], cache_time=1, is_personal=True)
             return
 
         # Has targets but missing message text
@@ -97,7 +86,7 @@ async def handle_inline_query(
             description="Missing secret message text. Type your secret after the recipient.",
             input_message_content=InputTextMessageContent(
                 message_text="💡 Please type your secret message after the recipient username or ID.",
-                parse_mode="Markdown",
+                parse_mode=ParseMode.HTML,
             ),
         )
         await inline_query.answer([article], cache_time=1, is_personal=True)
@@ -122,16 +111,17 @@ async def handle_inline_query(
         custom_id=std_id,
     )
 
+    escaped_targets = html.escape(targets_display, quote=False)
     std_card = InlineQueryResultArticle(
         id=std_id,
         title=f"🤫 Whisper for {targets_display}",
         description=f"Secret message for {targets_display}. Click to send.",
         input_message_content=InputTextMessageContent(
             message_text=(
-                f"🤫 **A whisper has been sent for {targets_display}!**\n\n"
-                "_Only the authorized recipient(s) and the sender can open this message._"
+                f"🤫 <b>A whisper has been sent for {escaped_targets}!</b>\n\n"
+                "<i>Only the authorized recipient(s) and the sender can open this message.</i>"
             ),
-            parse_mode="Markdown",
+            parse_mode=ParseMode.HTML,
         ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -165,10 +155,10 @@ async def handle_inline_query(
         description="💥 Self-destructs permanently after recipient opens it!",
         input_message_content=InputTextMessageContent(
             message_text=(
-                f"👁️ **A One-Time Whisper has been sent for {targets_display}!**\n\n"
-                "_💥 This whisper will self-destruct once opened._"
+                f"👁️ <b>A One-Time Whisper has been sent for {escaped_targets}!</b>\n\n"
+                "<i>💥 This whisper will self-destruct once opened.</i>"
             ),
-            parse_mode="Markdown",
+            parse_mode=ParseMode.HTML,
         ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[

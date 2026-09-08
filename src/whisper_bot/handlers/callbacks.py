@@ -1,6 +1,9 @@
 """Callback query handlers for opening, deleting, and managing whispers."""
 
+import html
+
 from aiogram import Bot, F, Router
+from aiogram.enums import ParseMode
 from aiogram.types import (
     CallbackQuery,
     EphemeralMessageParameters,
@@ -139,10 +142,12 @@ async def handle_whisper_callback(
             # We are in a group chat context with a chat_id and an active callback_query_id.
             # Utilize native Telegram Bot API Ephemeral Messages!
             try:
+                sender_display = html.escape(sender_name, quote=False)
+                escaped_secret = html.escape(secret_text, quote=False)
                 await bot.send_message(
                     chat_id=callback.message.chat.id,
-                    text=f"🤫 **Whisper from {sender_name}:**\n\n{secret_text}",
-                    parse_mode="Markdown",
+                    text=f"🤫 <b>Whisper from {sender_display}:</b>\n\n{escaped_secret}",
+                    parse_mode=ParseMode.HTML,
                     ephemeral_message_parameters=EphemeralMessageParameters(
                         receiver_user_id=user.id,
                         callback_query_id=callback.id,

@@ -1,15 +1,20 @@
 """Guest Mode handlers for interacting in chats without joining as a member."""
 
+import html
 import re
 import secrets
 
 from aiogram import Bot, Router
+from aiogram.enums import ParseMode
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InlineQueryResultArticle,
     InputTextMessageContent,
     Message,
+    MessageOriginChannel,
+    MessageOriginChat,
+    MessageOriginUser,
 )
 
 from whisper_bot.logger import get_logger
@@ -20,6 +25,44 @@ logger = get_logger(__name__)
 guest_router = Router(name="guest_router")
 
 
+def _extract_reply_target(message: Message) -> tuple[int | None, str | None]:
+    """Extract the user ID and username from a reply context.
+
+    Checks both ``reply_to_message`` (regular in-chat replies) and
+    ``external_reply`` (guest mode replies where the bot isn't a member).
+
+    Returns:
+        A ``(user_id, username)`` tuple, either or both may be ``None``.
+    """
+    # 1. Standard reply_to_message (populated when bot is a chat member)
+    if message.reply_to_message:
+        if message.reply_to_message.from_user:
+            u = message.reply_to_message.from_user
+            return u.id, u.username
+        if message.reply_to_message.sender_chat:
+            sc = message.reply_to_message.sender_chat
+            return sc.id, sc.username
+
+    # 2. external_reply — used by Telegram when the bot is NOT a member
+    #    (i.e. guest mode). The origin carries the sender information.
+    if message.external_reply:
+        origin = message.external_reply.origin
+        if isinstance(origin, MessageOriginUser):
+            u = origin.sender_user
+            return u.id, u.username
+        if isinstance(origin, MessageOriginChat):
+            sc = origin.sender_chat
+            return sc.id, sc.username
+        if isinstance(origin, MessageOriginChannel):
+            sc = origin.chat
+            return sc.id, sc.username
+        if message.external_reply.chat:
+            c = message.external_reply.chat
+            return c.id, c.username
+
+    return None, None
+
+
 @guest_router.guest_message()
 async def handle_guest_message(
     message: Message,
@@ -28,14 +71,30 @@ async def handle_guest_message(
 ) -> None:
     """Handle messages directed to the bot via Telegram Guest Mode."""
     guest_query_id = message.guest_query_id
+    user = message.from_user
+    raw_text = message.text or ""
+
+    # Extract reply target from either reply_to_message or external_reply
+    reply_target_id, reply_target_username = _extract_reply_target(message)
+
+    logger.info(
+        "guest_message_handler_triggered",
+        guest_query_id=guest_query_id,
+        user_id=user.id if user else None,
+        raw_text=raw_text,
+        has_reply_to_message=message.reply_to_message is not None,
+        has_external_reply=message.external_reply is not None,
+        reply_target_id=reply_target_id,
+        reply_target_username=reply_target_username,
+    )
+
     if not guest_query_id:
+        logger.warning("guest_message_missing_guest_query_id")
         return
 
-    user = message.from_user
     if not user:
         return
 
-    raw_text = message.text or ""
     entities = message.entities or []
     extra_user_ids: set[int] = set()
     extra_usernames: set[str] = set()
@@ -69,29 +128,34 @@ async def handle_guest_message(
     if bot_username:
         clean_text = re.sub(rf"(?i)@{re.escape(bot_username)}\b", "", clean_text).strip()
 
+    # Also strip optional command prefixes like /whisper, /psst, whisper, psst, or leading punctuation (preserving ! for flags)
+    clean_text = re.sub(r"^[./]?(?:whisper|psst)\b", "", clean_text, flags=re.I).strip()
+    clean_text = re.sub(r"^[,.:; ]+", "", clean_text).strip()
+
     parsed = parse_whisper_query(clean_text)
     parsed.target_user_ids.update(extra_user_ids)
     parsed.target_usernames.update(extra_usernames)
 
-    # Fallback to reply_to_message:
-    if not parsed.has_targets and message.reply_to_message and message.reply_to_message.from_user:
-        replied_user = message.reply_to_message.from_user
-        parsed.target_user_ids.add(replied_user.id)
-        if replied_user.username:
-            parsed.target_usernames.add(replied_user.username.lower())
+    # Fallback to reply context (reply_to_message or external_reply):
+    if not parsed.has_targets and reply_target_id is not None:
+        parsed.target_user_ids.add(reply_target_id)
+        if reply_target_username:
+            parsed.target_usernames.add(reply_target_username.lower())
 
     if not parsed.is_valid:
+        user_display = html.escape(user.username or user.first_name, quote=False)
+        bot_name = html.escape(bot_username or "psst_whisper_bot", quote=False)
         guide_card = InlineQueryResultArticle(
             id=f"guide_{secrets.token_urlsafe(4)}",
             title="💡 How to Send a Guest Whisper",
             input_message_content=InputTextMessageContent(
                 message_text=(
-                    f"💡 **@{user.username or user.first_name}**, to send a whisper in Guest Mode:\n"
-                    f"• Mention recipient: `@{bot_username or 'psst_whisper_bot'} @recipient secret message`\n"
-                    f"• Or reply to their message: `@{bot_username or 'psst_whisper_bot'} secret message`\n"
-                    f"• Add `!1` for self-destructing: `@{bot_username or 'psst_whisper_bot'} !1 secret`"
+                    f"💡 <b>@{user_display}</b>, to send a whisper in Guest Mode:\n"
+                    f"• Mention recipient: <code>@{bot_name} @recipient secret message</code>\n"
+                    f"• Or reply to their message: <code>@{bot_name} secret message</code>\n"
+                    f"• Add <code>!1</code> for self-destructing: <code>@{bot_name} !1 secret</code>"
                 ),
-                parse_mode="Markdown",
+                parse_mode=ParseMode.HTML,
             ),
         )
         await bot.answer_guest_query(guest_query_id=guest_query_id, result=guide_card)
@@ -132,10 +196,12 @@ async def handle_guest_message(
         ]
     )
 
-    destruct_notice = " _(💥 Self-destructs after reading)_" if parsed.is_one_time else ""
+    sender_name = html.escape(user.first_name, quote=False)
+    escaped_targets = html.escape(targets_display, quote=False)
+    destruct_notice = " <i>(💥 Self-destructs after reading)</i>" if parsed.is_one_time else ""
     card_text = (
-        f"🤫 **{user.first_name}** sent a private whisper for **{targets_display}**!{destruct_notice}\n\n"
-        "_Click below to view. Only authorized recipients can unlock it._"
+        f"🤫 <b>{sender_name}</b> sent a private whisper for <b>{escaped_targets}</b>!{destruct_notice}\n\n"
+        "<i>Click below to view. Only authorized recipients can unlock it.</i>"
     )
 
     result_card = InlineQueryResultArticle(
@@ -143,20 +209,29 @@ async def handle_guest_message(
         title=f"🤫 Whisper for {targets_display}",
         input_message_content=InputTextMessageContent(
             message_text=card_text,
-            parse_mode="Markdown",
+            parse_mode=ParseMode.HTML,
         ),
         reply_markup=kb,
     )
 
-    sent_guest = await bot.answer_guest_query(
-        guest_query_id=guest_query_id,
-        result=result_card,
-    )
-
-    if sent_guest and sent_guest.inline_message_id:
-        await whisper_service.bind_inline_message(whisper.id, sent_guest.inline_message_id)
-        logger.info(
-            "guest_whisper_bound",
-            whisper_id=whisper.id,
-            inline_message_id=sent_guest.inline_message_id,
+    try:
+        sent_guest = await bot.answer_guest_query(
+            guest_query_id=guest_query_id,
+            result=result_card,
         )
+        if sent_guest and getattr(sent_guest, "inline_message_id", None):
+            await whisper_service.bind_inline_message(whisper.id, sent_guest.inline_message_id)
+            logger.info(
+                "guest_whisper_bound",
+                whisper_id=whisper.id,
+                inline_message_id=sent_guest.inline_message_id,
+            )
+    except Exception as exc:
+        logger.error(
+            "guest_query_answer_failed",
+            guest_query_id=guest_query_id,
+            whisper_id=whisper.id,
+            error=str(exc),
+            exc_info=True,
+        )
+        raise

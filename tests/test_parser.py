@@ -147,5 +147,3 @@ def test_parse_tg_user_links_and_markdown_mentions() -> None:
     assert parsed_tme.is_valid
     assert parsed_tme.target_usernames == {"alice"}
     assert parsed_tme.text == "check this out"
-
-

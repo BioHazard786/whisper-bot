@@ -259,4 +259,3 @@ async def test_mix_match_usernames_and_user_ids(
     assert auth_id is True
     assert content_id == "Mix match secret payload"
     assert whisper.is_destroyed is True
-

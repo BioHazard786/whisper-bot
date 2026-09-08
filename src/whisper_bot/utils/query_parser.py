@@ -146,4 +146,3 @@ def parse_whisper_query(raw: str) -> ParsedWhisperQuery:
         allow_sender_view=allow_sender_view,
         raw_query=raw,
     )
-
