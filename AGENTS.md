@@ -6,46 +6,43 @@ Welcome to **Psst!**, a high-performance, privacy-focused Telegram Whisper Bot b
 
 ## 1. Overview & Architecture
 
-Psst! enables Telegram users to send confidential, target-restricted, and self-destructing messages across three operational modes:
+Psst! enables Telegram users to send confidential, target-restricted, and self-destructing messages across two operational modes:
 
-1. **Guest Mode (`@psst_whisper_bot <text>`)**: Introduced in Telegram Bot API 10.0, enables the bot to participate in groups/chats **without joining**, receiving mentions and replies with full context (`reply_to_message` / `external_reply`). *Requires Inline Mode to be turned OFF in @BotFather.*
-2. **Inline Query Mode (`@psst_whisper_bot`)**: Works anywhere across Telegram by generating locked cards via Telegram's inline dropdown. *Requires Inline Mode to be turned ON (which disables Guest Mode mentions in client UI).*
-3. **Group Chat Ephemeral Mode (`/whisper`, `/psst`)**: Uses native Telegram Bot API **Ephemeral Commands** and **Ephemeral Messages** directly inside group chats where the bot is a member.
-
-> **Important**: In Telegram client UI, typing `@bot_name` activates Inline Query search if Inline Mode is enabled. Therefore, **to use Guest Mode, Inline Mode must be disabled in @BotFather, and vice versa**.
+1. **Inline Query Mode (`@psst_whisper_bot`)**: Works anywhere across Telegram (private chats, groups, channels) by generating locked cards via Telegram's inline dropdown.
+2. **Group Chat Ephemeral Mode (`/whisper`, `/psst`)**: Uses native Telegram Bot API **Ephemeral Commands** and **Ephemeral Messages** directly inside group chats where the bot is a member.
 
 ### High-Level Architecture Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 Telegram Client (User)                                  │
-└────────────┬───────────────────────────────┬────────────────────────────┬───────────────┘
-             │                               │                            │
-  (Inline Mode: @bot @user text)   (Group Command: /whisper)     (Guest Mention / Reply)
-             │                               │                            │
-             ▼                               ▼                            ▼
-┌─────────────────────────┐     ┌────────────────────────────┐  ┌─────────────────────────┐
-│      inline_router      │     │        group_router        │  │      guest_router       │
-│ (Parses & saves whisper │     │ (Ephemeral command intake, │  │ (Receives guest_message,│
-│  generates locked cards)│     │  posts locked group prompt)│  │  supports reply_to)     │
-└────────────┬────────────┘     └────────────┬───────────────┘  └───────────┬─────────────┘
-             │                               │                              │
-             └───────────────────────┬───────┴──────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                         Telegram Client (User)                         │
+└───────────────────┬────────────────────────────────┬───────────────────┘
+                    │                                │
+     (Inline Mode: @bot @user text)       (Group Command: /whisper)
+                    │                                │
+                    ▼                                ▼
+       ┌─────────────────────────┐      ┌────────────────────────────┐
+       │      inline_router      │      │        group_router        │
+       │ (Parses & saves whisper │      │ (Ephemeral command intake, │
+       │  generates locked cards)│      │  posts locked group prompt)│
+       └────────────┬────────────┘      └────────────┬───────────────┘
+                    │                                │
+                    └────────────────┬───────────────┘
                                      ▼
                      ┌───────────────────────────────┐
                      │       callbacks_router        │
                      │  [ 🔒 Open ] / [ 🗑️ Delete ]   │
                      └───────────────┬───────────────┘
-                                   │
-                   ┌───────────────┴───────────────┐
-                   ▼                               ▼
-       Group Message Context?            Inline Message Context?
-                   │                               │
-       ┌───────────┴────────────┐                  ▼
-       │ Ephemeral Message API: │       answerCallbackQuery
-       │ send_message with      │       (show_alert=True)
-       │ ephemeral_parameters   │       Private modal popup
-       └────────────────────────┘
+                                     │
+                     ┌───────────────┴───────────────┐
+                     ▼                               ▼
+         Group Message Context?            Inline Message Context?
+                     │                               │
+         ┌───────────┴────────────┐                  ▼
+         │ Ephemeral Message API: │       answerCallbackQuery
+         │ send_message with      │       (show_alert=True)
+         │ ephemeral_parameters   │       Private modal popup
+         └────────────────────────┘
 ```
 
 ---

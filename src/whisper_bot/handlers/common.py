@@ -64,10 +64,9 @@ async def handle_start(message: Message) -> None:
         "I am your privacy-first <b>Whisper Bot</b>. Send secret, "
         "self-destructing, and ephemeral messages anywhere across Telegram.\n\n"
         "🔒 <b>Ways to Whisper:</b>\n"
-        "• <b>Guest Mode (No Joining!):</b> Reply to anyone or mention <code>@psst_whisper_bot</code> in any chat\n"
         "• <b>Inline Whispers:</b> Type <code>@psst_whisper_bot @user secret</code> in any chat\n"
         "• <b>Group Commands:</b> Invisible <code>/whisper @user secret</code> commands\n"
-        "• <b>User IDs &amp; No-Username:</b> Whisper using numeric IDs (<code>12345678</code>) or by replying\n"
+        "• <b>User IDs &amp; Deep Links:</b> Whisper using numeric IDs (<code>12345678</code>) or mention links\n"
         "• <b>One-Time Whispers:</b> Add <code>!1</code> to permanently self-destruct after reading\n\n"
         "Tap below to send your first whisper!"
     )
@@ -79,24 +78,18 @@ async def handle_help(message: Message) -> None:
     """Handle /help command."""
     text = (
         "📖 **How to Use Psst! Whisper Bot**\n\n"
-        "**1. Guest Mode (Works Anywhere Without Adding Bot):**\n"
-        "• **Reply to Any Message:** Swipe to reply to someone's message and type:\n"
-        "`@psst_whisper_bot secret message`\n"
-        "*(Works even if the user has no username!)*\n"
-        "• **Mention Recipient:** In any chat, type:\n"
-        "`@psst_whisper_bot @recipient secret message`\n\n"
-        "**2. Inline Whispers (Any Chat):**\n"
-        "Type `@psst_whisper_bot @recipient secret message` and tap the locked card to send.\n\n"
+        "**1. Inline Whispers (Any Chat):**\n"
+        "Type `@psst_whisper_bot @recipient secret message` in any chat and tap the locked card to send.\n\n"
+        "**2. Ephemeral Group Commands:**\n"
+        "In groups where Psst! is added, type `/whisper @recipient secret message`.\n"
+        "Telegram hides your command from other members, and the whisper is delivered ephemerally!\n\n"
         "**3. One-Time Self-Destructing Whispers:**\n"
         "Add `!1` to destroy the whisper as soon as it's read:\n"
         "`@psst_whisper_bot !1 @recipient secret message`\n\n"
         "**4. User IDs & Multiple Targets (Advanced):**\n"
         "Pass numeric IDs, Telegram links, or multiple targets:\n"
         "`@psst_whisper_bot 12345678 secret message`\n"
-        "`@psst_whisper_bot @alice 12345678 id:99999999 secret message`\n\n"
-        "**5. Ephemeral Group Commands:**\n"
-        "In groups where Psst! is added, type `/whisper @recipient secret message`.\n"
-        "Telegram hides your command from other members!"
+        "`@psst_whisper_bot @alice 12345678 id:99999999 secret message`"
     )
     await message.answer(text, reply_markup=get_help_keyboard(), parse_mode="Markdown")
 
@@ -106,15 +99,12 @@ async def handle_help_callback(callback: CallbackQuery) -> None:
     """Handle 'How It Works' inline button."""
     text = (
         "📖 **How to Use Psst! Whisper Bot**\n\n"
-        "**1. Guest Mode (No Joining Needed!):**\n"
-        "• Reply to any message: `@psst_whisper_bot secret text`\n"
-        "• Or mention: `@psst_whisper_bot @recipient secret text`\n\n"
-        "**2. Inline Whispers:**\n"
+        "**1. Inline Whispers (Any Chat):**\n"
         "Type `@psst_whisper_bot @recipient secret text` in any chat.\n\n"
+        "**2. Ephemeral Group Commands:**\n"
+        "Type `/whisper @recipient secret text` in a group chat.\n\n"
         "**3. One-Time Whispers:**\n"
-        "Add `!1` prefix to self-destruct once opened.\n\n"
-        "**4. Group Commands:**\n"
-        "Type `/whisper @recipient secret text` in a group chat."
+        "Add `!1` prefix to self-destruct once opened."
     )
     if callback.message and isinstance(callback.message, Message):
         await callback.message.edit_text(

@@ -13,7 +13,6 @@ from whisper_bot.handlers import (
     callbacks_router,
     common_router,
     group_router,
-    guest_router,
     inline_router,
 )
 from whisper_bot.logger import get_logger, setup_logging
@@ -94,7 +93,6 @@ async def run_bot() -> None:
     dp.include_router(inline_router)
     dp.include_router(callbacks_router)
     dp.include_router(group_router)
-    dp.include_router(guest_router)
 
     # Register commands with Telegram Bot API
     await setup_bot_commands(bot)
