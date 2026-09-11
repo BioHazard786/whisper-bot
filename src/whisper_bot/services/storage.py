@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import sqlite3
 from datetime import UTC, datetime
 from typing import Protocol
 
@@ -113,9 +114,30 @@ class SqliteWhisperStorage:
 
         db_dir = os.path.dirname(self._db_path)
         if db_dir:
-            os.makedirs(db_dir, exist_ok=True)
+            try:
+                os.makedirs(db_dir, exist_ok=True)
+            except OSError as exc:
+                raise PermissionError(
+                    f"Unable to create SQLite directory '{db_dir}': {exc}. "
+                    f"Check folder permissions and ownership."
+                ) from exc
 
-        self._db = await aiosqlite.connect(self._db_path)
+            if not os.access(db_dir, os.W_OK):
+                uid = os.getuid() if hasattr(os, "getuid") else "unknown"
+                raise PermissionError(
+                    f"SQLite database directory '{db_dir}' is not writable by current user "
+                    f"(UID={uid}). If running in Docker, verify volume permissions or ownership."
+                )
+
+        try:
+            self._db = await aiosqlite.connect(self._db_path)
+        except sqlite3.OperationalError as exc:
+            uid = os.getuid() if hasattr(os, "getuid") else "unknown"
+            raise PermissionError(
+                f"Failed to open SQLite database '{self._db_path}' (UID={uid}): {exc}. "
+                f"Verify directory permissions and volume mount ownership."
+            ) from exc
+
         self._db.row_factory = aiosqlite.Row
 
         # Optimize for concurrency and speed

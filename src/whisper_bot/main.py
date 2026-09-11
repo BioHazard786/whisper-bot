@@ -78,49 +78,61 @@ async def run_bot() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
     )
 
-    storage: WhisperStorageProtocol
-    if settings.storage_backend.lower() == "memory":
-        storage = MemoryWhisperStorage()
-        logger.info("storage_backend_initialized", backend="memory")
-    else:
-        sqlite_storage = SqliteWhisperStorage(db_path=settings.sqlite_db_path)
-        await sqlite_storage.init_db()
-        storage = sqlite_storage
-        logger.info(
-            "storage_backend_initialized",
-            backend="sqlite",
-            db_path=settings.sqlite_db_path,
-        )
-
-    whisper_service = WhisperService(
-        storage=storage,
-        default_ttl_seconds=settings.default_whisper_ttl_seconds,
-    )
-
-    dp = Dispatcher()
-
-    # Provide services via workflow data
-    dp["whisper_service"] = whisper_service
-
-    # Register Middlewares
-    dp.update.outer_middleware(StructlogEventMiddleware())
-    dp.callback_query.middleware(ThrottlingMiddleware(settings.rate_limit_seconds))
-
-    # Register Routers
-    dp.include_router(common_router)
-    dp.include_router(inline_router)
-    dp.include_router(callbacks_router)
-    dp.include_router(group_router)
-
-    # Register commands with Telegram Bot API
-    await setup_bot_commands(bot)
-
-    # Start cleanup background task
-    cleanup_task = asyncio.create_task(
-        whisper_service.run_cleanup_worker(settings.cleanup_interval_seconds)
-    )
+    storage: WhisperStorageProtocol | None = None
+    whisper_service: WhisperService | None = None
+    cleanup_task: asyncio.Task[None] | None = None
 
     try:
+        if settings.storage_backend.lower() == "memory":
+            storage = MemoryWhisperStorage()
+            logger.info("storage_backend_initialized", backend="memory")
+        else:
+            sqlite_storage = SqliteWhisperStorage(db_path=settings.sqlite_db_path)
+            try:
+                await sqlite_storage.init_db()
+            except Exception as exc:
+                logger.error(
+                    "storage_initialization_failed",
+                    backend="sqlite",
+                    db_path=settings.sqlite_db_path,
+                    error=str(exc),
+                )
+                raise
+            storage = sqlite_storage
+            logger.info(
+                "storage_backend_initialized",
+                backend="sqlite",
+                db_path=settings.sqlite_db_path,
+            )
+
+        whisper_service = WhisperService(
+            storage=storage,
+            default_ttl_seconds=settings.default_whisper_ttl_seconds,
+        )
+
+        dp = Dispatcher()
+
+        # Provide services via workflow data
+        dp["whisper_service"] = whisper_service
+
+        # Register Middlewares
+        dp.update.outer_middleware(StructlogEventMiddleware())
+        dp.callback_query.middleware(ThrottlingMiddleware(settings.rate_limit_seconds))
+
+        # Register Routers
+        dp.include_router(common_router)
+        dp.include_router(inline_router)
+        dp.include_router(callbacks_router)
+        dp.include_router(group_router)
+
+        # Register commands with Telegram Bot API
+        await setup_bot_commands(bot)
+
+        # Start cleanup background task
+        cleanup_task = asyncio.create_task(
+            whisper_service.run_cleanup_worker(settings.cleanup_interval_seconds)
+        )
+
         bot_info = await bot.get_me()
         logger.info(
             "bot_connected",
@@ -138,10 +150,12 @@ async def run_bot() -> None:
         await dp.start_polling(bot, allowed_updates=allowed_updates)
     finally:
         logger.info("shutting_down_bot")
-        whisper_service.stop_cleanup_worker()
-        cleanup_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await cleanup_task
+        if whisper_service is not None:
+            whisper_service.stop_cleanup_worker()
+        if cleanup_task is not None:
+            cleanup_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await cleanup_task
         if isinstance(storage, SqliteWhisperStorage):
             await storage.close()
         await bot.session.close()

@@ -25,8 +25,8 @@ ENV TZ=Asia/Kolkata \
     PYTHONDONTWRITEBYTECODE=1 \
     APP_ENV=production
 
-# Install tzdata for timezone accuracy
-RUN apk add --no-cache tzdata
+# Install tzdata for timezone accuracy and su-exec for step-down privileges
+RUN apk add --no-cache tzdata su-exec
 
 WORKDIR /app
 
@@ -36,10 +36,13 @@ RUN pip install --no-cache-dir /tmp/wheels/* \
     && rm -rf /tmp/wheels
 
 # Create non-root user and persistent data directory
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+RUN addgroup -g 1000 -S appgroup && adduser -u 1000 -S appuser -G appgroup \
     && mkdir -p /app/data && chown -R appuser:appgroup /app/data
 
-USER appuser
+# Copy runtime entrypoint script to handle volume permissions and drop privileges
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Run Psst! Whisper Bot via installed console script or module
-ENTRYPOINT ["whisper-bot"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["whisper-bot"]
+

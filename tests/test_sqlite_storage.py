@@ -1,5 +1,6 @@
 """Unit tests for SqliteWhisperStorage hybrid storage."""
 
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -265,3 +266,35 @@ async def test_sqlite_stats(sqlite_storage: SqliteWhisperStorage) -> None:
     assert stats["lifetime_created"] == 2
 
     await sqlite_storage.close()
+
+
+@pytest.mark.asyncio
+async def test_sqlite_permission_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify informative PermissionError is raised when SQLite dir is not writable."""
+    storage = SqliteWhisperStorage(db_path=str(tmp_path / "sub" / "whispers.db"))
+
+    # Mock os.access to simulate non-writable directory
+    original_access = os.access
+
+    def mock_access(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        mode: int,
+        *,
+        dir_fd: int | None = None,
+        effective_ids: bool = False,
+        follow_symlinks: bool = True,
+    ) -> bool:
+        if mode == os.W_OK and "sub" in str(path):
+            return False
+        return original_access(
+            path,
+            mode,
+            dir_fd=dir_fd,
+            effective_ids=effective_ids,
+            follow_symlinks=follow_symlinks,
+        )
+
+    monkeypatch.setattr(os, "access", mock_access)
+
+    with pytest.raises(PermissionError, match="not writable by current user"):
+        await storage.init_db()
