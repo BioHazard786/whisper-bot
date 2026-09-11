@@ -19,3 +19,9 @@ wheels/
 .pytest_cache/
 .ruff_cache/
 .pyright/
+
+# SQLite database files
+data/
+*.db
+*.db-wal
+*.db-shm

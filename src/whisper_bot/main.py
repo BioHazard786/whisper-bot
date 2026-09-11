@@ -1,6 +1,7 @@
 """Application entry point and lifecycle management."""
 
 import asyncio
+import contextlib
 import sys
 
 from aiogram import Bot, Dispatcher
@@ -17,7 +18,11 @@ from whisper_bot.handlers import (
 )
 from whisper_bot.logger import get_logger, setup_logging
 from whisper_bot.middlewares import StructlogEventMiddleware, ThrottlingMiddleware
-from whisper_bot.services.storage import MemoryWhisperStorage
+from whisper_bot.services.storage import (
+    MemoryWhisperStorage,
+    SqliteWhisperStorage,
+    WhisperStorageProtocol,
+)
 from whisper_bot.services.whisper_service import WhisperService
 
 logger = get_logger(__name__)
@@ -73,7 +78,20 @@ async def run_bot() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
     )
 
-    storage = MemoryWhisperStorage()
+    storage: WhisperStorageProtocol
+    if settings.storage_backend.lower() == "memory":
+        storage = MemoryWhisperStorage()
+        logger.info("storage_backend_initialized", backend="memory")
+    else:
+        sqlite_storage = SqliteWhisperStorage(db_path=settings.sqlite_db_path)
+        await sqlite_storage.init_db()
+        storage = sqlite_storage
+        logger.info(
+            "storage_backend_initialized",
+            backend="sqlite",
+            db_path=settings.sqlite_db_path,
+        )
+
     whisper_service = WhisperService(
         storage=storage,
         default_ttl_seconds=settings.default_whisper_ttl_seconds,
@@ -120,7 +138,12 @@ async def run_bot() -> None:
         await dp.start_polling(bot, allowed_updates=allowed_updates)
     finally:
         logger.info("shutting_down_bot")
+        whisper_service.stop_cleanup_worker()
         cleanup_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await cleanup_task
+        if isinstance(storage, SqliteWhisperStorage):
+            await storage.close()
         await bot.session.close()
         logger.info("bot_shutdown_complete")
 

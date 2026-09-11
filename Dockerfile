@@ -35,8 +35,9 @@ COPY --from=builder /build/wheels /tmp/wheels
 RUN pip install --no-cache-dir /tmp/wheels/* \
     && rm -rf /tmp/wheels
 
-# Create non-root user for security best practices
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Create non-root user and persistent data directory
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && mkdir -p /app/data && chown -R appuser:appgroup /app/data
 
 USER appuser
 

@@ -45,6 +45,16 @@ class Settings(BaseSettings):
         alias="RATE_LIMIT_SECONDS",
         description="Minimum cooldown between callback queries per user to prevent spam",
     )
+    storage_backend: str = Field(
+        default="sqlite",
+        alias="STORAGE_BACKEND",
+        description="Storage backend: 'sqlite' (dual in-memory + sqlite) or 'memory'",
+    )
+    sqlite_db_path: str = Field(
+        default="data/whispers.db",
+        alias="SQLITE_DB_PATH",
+        description="File path for SQLite database",
+    )
 
 
 @lru_cache(maxsize=1)

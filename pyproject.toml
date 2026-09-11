@@ -4,11 +4,12 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "Mohd Zaid", email = "bzatch70@gmail.com" }
+    { name = "Mohd Zaid", email = "mohdzaidmalik70@gmail.com" }
 ]
 requires-python = ">=3.11"
 dependencies = [
     "aiogram>=3.31.0",
+    "aiosqlite>=0.22.1",
     "pydantic-settings>=2.15.0",
     "structlog>=26.1.0",
 ]

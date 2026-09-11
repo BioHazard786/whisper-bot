@@ -12,6 +12,10 @@ services:
       - PYTHONUNBUFFERED=1
       - APP_ENV=production
       - LOG_LEVEL=INFO
+      - STORAGE_BACKEND=sqlite
+      - SQLITE_DB_PATH=/app/data/whispers.db
+    volumes:
+      - ./data:/app/data
     deploy:
       resources:
         limits:

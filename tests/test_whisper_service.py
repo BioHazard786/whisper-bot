@@ -259,3 +259,50 @@ async def test_mix_match_usernames_and_user_ids(
     assert auth_id is True
     assert content_id == "Mix match secret payload"
     assert whisper.is_destroyed is True
+
+
+@pytest.mark.asyncio
+async def test_cleanup_worker_graceful_stop(whisper_service: WhisperService) -> None:
+    """Verify cleanup worker stops immediately upon stop_cleanup_worker() signal."""
+    import asyncio
+
+    task = asyncio.create_task(
+        whisper_service.run_cleanup_worker(interval_seconds=3600, initial_wait_seconds=3600)
+    )
+    await asyncio.sleep(0.05)
+    assert not task.done()
+
+    whisper_service.stop_cleanup_worker()
+    await asyncio.wait_for(task, timeout=1.0)
+    assert task.done()
+
+
+@pytest.mark.asyncio
+async def test_cleanup_worker_executes_sweep(whisper_service: WhisperService) -> None:
+    """Verify cleanup worker purges expired records during periodic iteration."""
+    import asyncio
+    from datetime import UTC, datetime, timedelta
+
+    whisper = await whisper_service.create_whisper(
+        sender_id=1,
+        sender_first_name="Alice",
+        sender_username="alice",
+        text="Old expired whisper",
+        target_usernames={"bob"},
+    )
+    # Force expire it
+    whisper.expires_at = datetime.now(UTC) - timedelta(seconds=10)
+    await whisper_service._storage.update(whisper)
+
+    task = asyncio.create_task(
+        whisper_service.run_cleanup_worker(interval_seconds=3600, initial_wait_seconds=0.01)
+    )
+    # Allow initial sweep to execute
+    await asyncio.sleep(0.08)
+
+    # Verify expired whisper was purged
+    assert await whisper_service.get_whisper(whisper.id) is None
+
+    whisper_service.stop_cleanup_worker()
+    await asyncio.wait_for(task, timeout=1.0)
+    assert task.done()

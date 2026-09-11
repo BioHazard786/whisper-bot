@@ -40,16 +40,19 @@ Works anywhere across Telegram (groups, private chats, channels) by typing in th
 @psst_whisper_bot 12345678 87654321 Meeting at dusk
 @psst_whisper_bot !1 @alice Self-destructing credentials
 ```
+> [!NOTE]
+> Inline whispers open in Telegram's alert popup modal dialog. Because Telegram restricts modal alerts to short messages (approx. 200 characters), inline mode is best suited for quick secret notes, passwords, and short links.
 
-### 2. Group Command Mode (`/whisper`)
+### 2. Group Command Mode (`/whisper` or `/psst`) — Supports Long Whispers
 For groups where Psst! is added as a member:
 ```text
 /whisper @alice @bob The meeting link is ready
 /whisper 12345678,87654321 Sensitive project notes
 ```
-- Commands are invisible to other members thanks to Bot API `is_ephemeral=True`.
-- Whispers are delivered directly onto the recipient's timeline using `ephemeral_message_parameters`.
-- You can also reply to any message in the group with `/whisper your secret`.
+- **Long Message Support (up to 4,096 characters)**: Group whispers render directly on the recipient's chat timeline ephemerally, overcoming the character limits of inline popup dialogs!
+- **Invisible Input**: Commands are hidden from other members thanks to Bot API `is_ephemeral=True`.
+- **Ephemeral Delivery**: Delivered directly onto the recipient's timeline using `ephemeral_message_parameters`.
+- **Reply Whispers**: Simply reply to any message with `/whisper your secret` to whisper directly without typing usernames or IDs, or add multiple targets: `/whisper @user2 12345678 secret`.
 
 ---
 

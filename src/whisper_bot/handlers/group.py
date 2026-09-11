@@ -3,9 +3,10 @@
 import html
 import re
 
-from aiogram import Bot, Router
+from aiogram import Bot, F, Router
 from aiogram.enums import ParseMode
-from aiogram.filters import Filter
+from aiogram.filters import Command
+from aiogram.filters.command import CommandObject
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -20,51 +21,22 @@ logger = get_logger(__name__)
 group_router = Router(name="group_router")
 
 
-class GroupWhisperFilter(Filter):
-    """Matches /whisper, /psst commands or direct @bot mentions in groups."""
-
-    async def __call__(self, message: Message, bot: Bot) -> bool:
-        if not message.chat or message.chat.type not in ("group", "supergroup"):
-            return False
-        text = message.text or message.caption or ""
-        if not text:
-            return False
-
-        # 1. Slash commands /whisper or /psst
-        if text.startswith(("/whisper", "/psst")):
-            return True
-
-        # 2. Check for bot mention in entities or text
-        try:
-            bot_user = await bot.get_me()
-            username = getattr(bot_user, "username", None)
-            bot_username = username.lower() if isinstance(username, str) else ""
-        except Exception:
-            bot_username = ""
-
-        if bot_username:
-            for ent in message.entities or []:
-                if ent.type == "mention":
-                    handle = text[ent.offset : ent.offset + ent.length].lower()
-                    if handle == f"@{bot_username}":
-                        return True
-                elif ent.type == "text_mention" and ent.user and ent.user.id == bot.id:
-                    return True
-
-            if f"@{bot_username}" in text.lower():
-                return True
-
-        return False
-
-
-@group_router.message(GroupWhisperFilter())
+@group_router.message(
+    Command("whisper", "psst", ignore_case=True),
+    F.chat.type.in_({"group", "supergroup"}),
+)
 async def handle_group_whisper_command(
     message: Message,
     bot: Bot,
     whisper_service: WhisperService,
+    command: CommandObject | None = None,
 ) -> None:
-    """Handle /whisper, /psst commands, or @bot mentions in groups."""
-    raw_text = message.text or ""
+    """Handle /whisper or /psst slash commands in group chats."""
+    user = message.from_user
+    if not user:
+        return
+
+    raw_text = message.text or message.caption or ""
     entities = message.entities or []
     extra_user_ids: set[int] = set()
     extra_usernames: set[str] = set()
@@ -73,9 +45,10 @@ async def handle_group_whisper_command(
     # Extract targets from text_mention entities (users tagged without username)
     for ent in entities:
         if ent.type == "text_mention" and ent.user:
-            extra_user_ids.add(ent.user.id)
-            if ent.user.username:
-                extra_usernames.add(ent.user.username.lower())
+            if not ent.user.is_bot:
+                extra_user_ids.add(ent.user.id)
+                if ent.user.username:
+                    extra_usernames.add(ent.user.username.lower())
             mention_spans.append((ent.offset, ent.offset + ent.length))
         elif ent.type == "text_link" and ent.url and "tg://user?id=" in ent.url:
             m = re.search(r"tg://user\?id=(\d+)", ent.url)
@@ -88,25 +61,10 @@ async def handle_group_whisper_command(
     for start, end in sorted(mention_spans, reverse=True):
         clean_text = clean_text[:start] + clean_text[end:]
 
-    # Strip the bot's own username mention if present
-    try:
-        bot_user = await bot.get_me()
-        raw_uname = getattr(bot_user, "username", None)
-        bot_username = raw_uname if isinstance(raw_uname, str) else ""
-    except Exception:
-        bot_username = ""
-
-    if bot_username:
-        clean_text = re.sub(rf"(?i)@{re.escape(bot_username)}\b", "", clean_text).strip()
-
-    # Strip the command prefix e.g. /whisper or /whisper@psst_whisper_bot
-    clean_text = re.sub(r"^[./]?(?:whisper|psst)\b", "", clean_text, flags=re.I).strip()
+    # Strip the slash command prefix e.g. /whisper or /whisper@psst_whisper_bot or /psst
+    clean_text = re.sub(r"^/(?:whisper|psst)(?:@\w+)?(?:\s+|$)", "", clean_text, flags=re.I).strip()
     clean_text = clean_text.lstrip(".,!?:; ").strip()
     args = clean_text
-
-    user = message.from_user
-    if not user:
-        return
 
     # Attempt to delete the command message to guarantee privacy on legacy clients
     try:
@@ -118,22 +76,27 @@ async def handle_group_whisper_command(
     parsed.target_user_ids.update(extra_user_ids)
     parsed.target_usernames.update(extra_usernames)
 
-    # Fallback: If no targets specified in text, check if message is a reply to another user
-    if not parsed.has_targets and message.reply_to_message and message.reply_to_message.from_user:
+    # If replying to a user, automatically include that user as a target without requiring their username or ID
+    if message.reply_to_message and message.reply_to_message.from_user:
         replied_user = message.reply_to_message.from_user
-        parsed.target_user_ids.add(replied_user.id)
-        if replied_user.username:
-            parsed.target_usernames.add(replied_user.username.lower())
+        if not replied_user.is_bot:
+            if replied_user.username:
+                parsed.target_usernames.add(replied_user.username.lower())
+            else:
+                parsed.target_user_ids.add(replied_user.id)
 
     if not parsed.is_valid:
         user_display = html.escape(user.username or user.first_name, quote=False)
         guide_text = (
             f"💡 <b>@{user_display}</b>, to send a whisper, use:\n"
             "<code>/whisper @username your secret message</code>\n"
-            "<code>/whisper 12345678,87654321 your secret message</code>\n\n"
+            "<code>/whisper 12345678 your secret message</code>\n\n"
+            "Or reply to someone's message:\n"
+            "<code>/whisper your secret message</code>\n"
+            "<code>/whisper @extra_user your secret message</code>\n\n"
+            "💡 <i>Tip: Group whispers support long messages (up to 4,096 chars) directly on the timeline without popup dialog limits!</i>\n\n"
             "Or use inline mode in any chat:\n"
-            "<code>@psst_whisper_bot @username your secret message</code>\n"
-            "<code>@psst_whisper_bot 12345678 87654321 your secret message</code>"
+            "<code>@psst_whisper_bot @username your secret message</code>"
         )
         await message.answer(guide_text, parse_mode=ParseMode.HTML)
         return

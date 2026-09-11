@@ -1,6 +1,7 @@
 """Whisper business logic service."""
 
 import asyncio
+import contextlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -21,6 +22,7 @@ class WhisperService:
     ) -> None:
         self._storage = storage
         self._default_ttl = default_ttl_seconds
+        self._shutdown_event = asyncio.Event()
 
     async def create_whisper(
         self,
@@ -166,15 +168,35 @@ class WhisperService:
         logger.info("whisper_manually_deleted", whisper_id=whisper_id, user_id=user_id)
         return True
 
-    async def run_cleanup_worker(self, interval_seconds: int = 300) -> None:
-        """Background worker that continuously purges expired whispers."""
+    def stop_cleanup_worker(self) -> None:
+        """Signal the cleanup background worker to stop immediately."""
+        self._shutdown_event.set()
+
+    async def run_cleanup_worker(
+        self,
+        interval_seconds: int = 300,
+        initial_wait_seconds: float = 10.0,
+    ) -> None:
+        """Background task that continuously purges expired whispers with graceful interruptible shutdown."""
         logger.info("cleanup_worker_started", interval_seconds=interval_seconds)
-        while True:
+
+        # Initial wait after startup (interruptible if stopped early)
+        if initial_wait_seconds > 0:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._shutdown_event.wait(), timeout=initial_wait_seconds)
+
+        while not self._shutdown_event.is_set():
             try:
-                await asyncio.sleep(interval_seconds)
+                logger.debug("running_periodic_whisper_cleanup")
                 await self._storage.cleanup_expired()
-            except asyncio.CancelledError:
-                logger.info("cleanup_worker_cancelled")
-                break
             except Exception as e:
                 logger.error("cleanup_worker_error", error=str(e))
+
+            # Sleep for interval_seconds, waking up immediately if shutdown is signaled
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(
+                    self._shutdown_event.wait(),
+                    timeout=interval_seconds,
+                )
+
+        logger.info("cleanup_worker_stopped")

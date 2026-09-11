@@ -76,10 +76,12 @@ Psst! enables Telegram users to send confidential, target-restricted, and self-d
   )
   ```
 - **Behavior**: The whisper renders on the recipient's chat timeline **only**. Other group members cannot see this message.
+- **Key Advantage (Long Whispers)**: Because ephemeral messages are delivered directly onto the recipient's chat timeline via `bot.send_message`, they support **full Telegram message lengths up to 4,096 characters** and rich text formatting (bold, code blocks, lists). This completely eliminates the character truncation issue of modal alert popups!
 
 ### C. Inline Query Fallback
 - Telegram inline messages do not expose a group `chat_id` inside callback queries for privacy reasons (`callback.inline_message_id` is set, `callback.message` is `None`).
 - The bot gracefully handles inline messages using `answerCallbackQuery(text=..., show_alert=True)`, rendering a secure modal popup on all devices.
+- **Dialog Box Limitation**: Telegram's `show_alert=True` popup modal is restricted to short text (approx. 200 characters) before truncation. For long confidential documents, logs, or multi-paragraph notes, users should use Group Command Mode (`/whisper`).
 
 ---
 
@@ -194,13 +196,19 @@ Environment variables supported via `.env` (managed by `pydantic-settings` in `w
 | `DEFAULT_WHISPER_TTL_SECONDS` | `int` | `86400` (24h) | Time after which unread whispers auto-expire |
 | `CLEANUP_INTERVAL_SECONDS` | `int` | `300` (5m) | Background sweep frequency for purging expired whispers |
 | `RATE_LIMIT_SECONDS` | `float` | `0.3` | Minimum cooldown between user callback clicks |
+| `STORAGE_BACKEND` | `str` | `"sqlite"` | Storage backend: `"sqlite"` (dual in-memory + SQLite) or `"memory"` |
+| `SQLITE_DB_PATH` | `str` | `"data/whispers.db"` | File path for SQLite database |
 
 ---
 
 ## 6. Extending the Codebase
 
-### Persistent Storage (Redis or SQLite)
-To replace `MemoryWhisperStorage` with a persistent database, implement the `WhisperStorageProtocol` in `src/whisper_bot/services/storage.py`:
+### Storage Layer Architecture
+Psst! uses a dual storage architecture by default (`SqliteWhisperStorage`):
+- **L1 In-Memory Cache**: Fast in-memory dictionary cache for sub-millisecond retrieval and instant button unlocks.
+- **L2 SQLite Persistence**: Asynchronous WAL-mode SQLite database powered by `aiosqlite` ensuring zero data loss across restarts or container redeployments.
+
+To implement another backend (e.g., Redis for multi-node clustering), implement the `WhisperStorageProtocol` in `src/whisper_bot/services/storage.py`:
 ```python
 class RedisWhisperStorage:
     async def save(self, whisper: Whisper) -> None: ...
