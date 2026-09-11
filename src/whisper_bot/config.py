@@ -1,8 +1,9 @@
 """Application configuration using pydantic-settings."""
 
 from functools import lru_cache
+from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -55,6 +56,28 @@ class Settings(BaseSettings):
         alias="SQLITE_DB_PATH",
         description="File path for SQLite database",
     )
+    log_channel: int | str | None = Field(
+        default=None,
+        alias="LOG_CHANNEL",
+        description="Telegram log channel ID (-100...) or @username to log whispers",
+    )
+
+    @field_validator("log_channel", mode="before")
+    @classmethod
+    def parse_log_channel(cls, v: Any) -> int | str | None:
+        """Parse LOG_CHANNEL into integer ID, @channel username, or None if omitted/empty."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v_str = v.strip()
+            if not v_str or v_str.lower() in ("none", "null", "false", "0"):
+                return None
+            if (v_str.startswith("-") and v_str[1:].isdigit()) or v_str.isdigit():
+                return int(v_str)
+            return v_str
+        if isinstance(v, int):
+            return v if v != 0 else None
+        return None
 
 
 @lru_cache(maxsize=1)

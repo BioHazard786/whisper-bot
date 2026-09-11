@@ -18,6 +18,7 @@ from whisper_bot.handlers import (
 )
 from whisper_bot.logger import get_logger, setup_logging
 from whisper_bot.middlewares import StructlogEventMiddleware, ThrottlingMiddleware
+from whisper_bot.services.channel_logger import ChannelLogger
 from whisper_bot.services.storage import (
     MemoryWhisperStorage,
     SqliteWhisperStorage,
@@ -110,10 +111,17 @@ async def run_bot() -> None:
             default_ttl_seconds=settings.default_whisper_ttl_seconds,
         )
 
+        channel_logger = ChannelLogger(bot=bot, log_channel=settings.log_channel)
+        if channel_logger.is_enabled:
+            logger.info("whisper_channel_logger_enabled", log_channel=settings.log_channel)
+        else:
+            logger.info("whisper_channel_logger_disabled_no_channel_configured")
+
         dp = Dispatcher()
 
         # Provide services via workflow data
         dp["whisper_service"] = whisper_service
+        dp["channel_logger"] = channel_logger
 
         # Register Middlewares
         dp.update.outer_middleware(StructlogEventMiddleware())

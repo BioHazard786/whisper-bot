@@ -15,6 +15,7 @@ from aiogram.types import (
 )
 
 from whisper_bot.logger import get_logger
+from whisper_bot.services.channel_logger import ChannelLogger
 from whisper_bot.services.whisper_service import WhisperService
 from whisper_bot.utils.query_parser import parse_whisper_query
 
@@ -184,6 +185,7 @@ async def handle_inline_query(
 async def handle_chosen_inline_result(
     chosen: ChosenInlineResult,
     whisper_service: WhisperService,
+    channel_logger: ChannelLogger | None = None,
 ) -> None:
     """Track chosen inline whisper and bind its inline message ID."""
     whisper_id = chosen.result_id
@@ -193,4 +195,11 @@ async def handle_chosen_inline_result(
             "inline_whisper_bound",
             whisper_id=whisper_id,
             inline_message_id=chosen.inline_message_id,
+        )
+
+    whisper = await whisper_service.get_whisper(whisper_id)
+    if whisper and channel_logger:
+        await channel_logger.log_whisper(
+            whisper=whisper,
+            mode="inline",
         )

@@ -198,6 +198,7 @@ Environment variables supported via `.env` (managed by `pydantic-settings` in `w
 | `RATE_LIMIT_SECONDS` | `float` | `0.3` | Minimum cooldown between user callback clicks |
 | `STORAGE_BACKEND` | `str` | `"sqlite"` | Storage backend: `"sqlite"` (dual in-memory + SQLite) or `"memory"` |
 | `SQLITE_DB_PATH` | `str` | `"data/whispers.db"` | File path for SQLite database |
+| `LOG_CHANNEL` | `int \| str` | `None` | Optional Telegram channel ID or `@username` for audit logging whispers |
 
 ---
 

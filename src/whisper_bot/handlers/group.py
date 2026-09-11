@@ -14,6 +14,7 @@ from aiogram.types import (
 )
 
 from whisper_bot.logger import get_logger
+from whisper_bot.services.channel_logger import ChannelLogger
 from whisper_bot.services.whisper_service import WhisperService
 from whisper_bot.utils.query_parser import parse_whisper_query
 
@@ -29,6 +30,7 @@ async def handle_group_whisper_command(
     message: Message,
     bot: Bot,
     whisper_service: WhisperService,
+    channel_logger: ChannelLogger | None = None,
     command: CommandObject | None = None,
 ) -> None:
     """Handle /whisper or /psst slash commands in group chats."""
@@ -140,3 +142,11 @@ async def handle_group_whisper_command(
     )
     whisper.group_message_id = sent_msg.message_id
     await whisper_service._storage.update(whisper)
+
+    if channel_logger:
+        await channel_logger.log_whisper(
+            whisper=whisper,
+            mode="group",
+            chat_title=message.chat.title,
+            chat_id=message.chat.id,
+        )
