@@ -76,24 +76,12 @@ async def handle_group_whisper_command(
     parsed.target_user_ids.update(extra_user_ids)
     parsed.target_usernames.update(extra_usernames)
 
-    # If replying to a user, automatically include that user as a target without requiring their username or ID
-    if message.reply_to_message and message.reply_to_message.from_user:
-        replied_user = message.reply_to_message.from_user
-        if not replied_user.is_bot:
-            if replied_user.username:
-                parsed.target_usernames.add(replied_user.username.lower())
-            else:
-                parsed.target_user_ids.add(replied_user.id)
-
     if not parsed.is_valid:
         user_display = html.escape(user.username or user.first_name, quote=False)
         guide_text = (
             f"💡 <b>@{user_display}</b>, to send a whisper, use:\n"
             "<code>/whisper @username your secret message</code>\n"
             "<code>/whisper 12345678 your secret message</code>\n\n"
-            "Or reply to someone's message:\n"
-            "<code>/whisper your secret message</code>\n"
-            "<code>/whisper @extra_user your secret message</code>\n\n"
             "💡 <i>Tip: Group whispers support long messages (up to 4,096 chars) directly on the timeline without popup dialog limits!</i>\n\n"
             "Or use inline mode in any chat:\n"
             "<code>@psst_whisper_bot @username your secret message</code>"

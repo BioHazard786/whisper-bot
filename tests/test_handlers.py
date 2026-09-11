@@ -139,7 +139,6 @@ async def test_group_whisper_text_mention(whisper_service: WhisperService) -> No
     mock_message.entities = [entity]
     mock_message.from_user = sender_user
     mock_message.chat = chat
-    mock_message.reply_to_message = None
     mock_message.delete = AsyncMock()
 
     await handle_group_whisper_command(
@@ -151,42 +150,6 @@ async def test_group_whisper_text_mention(whisper_service: WhisperService) -> No
     mock_bot.send_message.assert_awaited_once()
     sent_text = mock_bot.send_message.call_args.kwargs["text"]
     assert "ID:77777777" in sent_text
-
-
-@pytest.mark.asyncio
-async def test_group_whisper_reply_to_message(whisper_service: WhisperService) -> None:
-    from aiogram.types import Chat, Message
-
-    from whisper_bot.handlers.group import handle_group_whisper_command
-
-    mock_bot = AsyncMock(spec=Bot)
-    mock_bot.send_message = AsyncMock()
-    mock_bot.send_message.return_value = AsyncMock(message_id=43)
-
-    target_user = User(id=99999999, is_bot=False, first_name="TargetBob")
-    sender_user = User(id=1, is_bot=False, first_name="Alice", username="alice")
-    chat = Chat(id=-1001234567890, type="supergroup")
-
-    mock_reply = AsyncMock(spec=Message)
-    mock_reply.from_user = target_user
-
-    mock_message = AsyncMock(spec=Message)
-    mock_message.text = "/whisper this is for the person I replied to"
-    mock_message.entities = []
-    mock_message.from_user = sender_user
-    mock_message.chat = chat
-    mock_message.reply_to_message = mock_reply
-    mock_message.delete = AsyncMock()
-
-    await handle_group_whisper_command(
-        message=mock_message,
-        bot=mock_bot,
-        whisper_service=whisper_service,
-    )
-
-    mock_bot.send_message.assert_awaited_once()
-    sent_text = mock_bot.send_message.call_args.kwargs["text"]
-    assert "ID:99999999" in sent_text
 
 
 @pytest.mark.asyncio
@@ -209,7 +172,6 @@ async def test_group_whisper_psst_alias(whisper_service: WhisperService) -> None
     mock_msg.entities = []
     mock_msg.from_user = sender
     mock_msg.chat = chat
-    mock_msg.reply_to_message = None
     mock_msg.delete = AsyncMock()
 
     await handle_group_whisper_command(
@@ -222,83 +184,6 @@ async def test_group_whisper_psst_alias(whisper_service: WhisperService) -> None
     mock_bot.send_message.assert_awaited_once()
     sent_text = mock_bot.send_message.call_args.kwargs["text"]
     assert "@bob" in sent_text
-
-
-@pytest.mark.asyncio
-async def test_group_whisper_reply_with_username(whisper_service: WhisperService) -> None:
-    """Test replying to a user with a username whispers to them without requiring username/ID in text."""
-    from aiogram.types import Chat, Message
-
-    from whisper_bot.handlers.group import handle_group_whisper_command
-
-    mock_bot = AsyncMock(spec=Bot)
-    mock_bot.send_message = AsyncMock()
-    mock_bot.send_message.return_value = AsyncMock(message_id=100)
-
-    target_user = User(id=22222222, is_bot=False, first_name="TargetBob", username="targetbob")
-    sender_user = User(id=1, is_bot=False, first_name="Alice", username="alice")
-    chat = Chat(id=-1001234567890, type="supergroup")
-
-    mock_reply = AsyncMock(spec=Message)
-    mock_reply.from_user = target_user
-
-    mock_message = AsyncMock(spec=Message)
-    mock_message.text = "/whisper this is a direct reply to Bob"
-    mock_message.entities = []
-    mock_message.from_user = sender_user
-    mock_message.chat = chat
-    mock_message.reply_to_message = mock_reply
-    mock_message.delete = AsyncMock()
-
-    await handle_group_whisper_command(
-        message=mock_message,
-        bot=mock_bot,
-        whisper_service=whisper_service,
-    )
-
-    mock_bot.send_message.assert_awaited_once()
-    sent_text = mock_bot.send_message.call_args.kwargs["text"]
-    assert "@targetbob" in sent_text
-
-
-@pytest.mark.asyncio
-async def test_group_whisper_reply_with_multiple_targets(whisper_service: WhisperService) -> None:
-    """Test replying to a user while also adding multiple other users by username and ID."""
-    from aiogram.types import Chat, Message
-
-    from whisper_bot.handlers.group import handle_group_whisper_command
-
-    mock_bot = AsyncMock(spec=Bot)
-    mock_bot.send_message = AsyncMock()
-    mock_bot.send_message.return_value = AsyncMock(message_id=101)
-
-    target_user = User(id=22222222, is_bot=False, first_name="TargetBob", username="targetbob")
-    sender_user = User(id=1, is_bot=False, first_name="Alice", username="alice")
-    chat = Chat(id=-1001234567890, type="supergroup")
-
-    mock_reply = AsyncMock(spec=Message)
-    mock_reply.from_user = target_user
-
-    mock_message = AsyncMock(spec=Message)
-    mock_message.text = "/whisper @charlie 12345678 group secret for all of you"
-    mock_message.entities = []
-    mock_message.from_user = sender_user
-    mock_message.chat = chat
-    mock_message.reply_to_message = mock_reply
-    mock_message.delete = AsyncMock()
-
-    await handle_group_whisper_command(
-        message=mock_message,
-        bot=mock_bot,
-        whisper_service=whisper_service,
-    )
-
-    mock_bot.send_message.assert_awaited_once()
-    sent_text = mock_bot.send_message.call_args.kwargs["text"]
-    # All 3 targets should be in the announcement text:
-    assert "@targetbob" in sent_text
-    assert "@charlie" in sent_text
-    assert "ID:12345678" in sent_text
 
 
 @pytest.mark.asyncio
@@ -317,7 +202,6 @@ async def test_handle_start_command() -> None:
 
     mock_msg.answer.assert_awaited_once()
     called_text = mock_msg.answer.call_args.args[0]
-    assert "Reply Whispers" in called_text
     assert "/whisper" in called_text
     assert "/psst" in called_text
     assert "4,096" in called_text
@@ -339,6 +223,6 @@ async def test_handle_help_command() -> None:
 
     mock_msg.answer.assert_awaited_once()
     called_text = mock_msg.answer.call_args.args[0]
-    assert "Reply Whispers" in called_text
+    assert "/whisper" in called_text
     assert "/psst" in called_text
     assert "4,096" in called_text

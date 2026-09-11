@@ -52,7 +52,6 @@ For groups where Psst! is added as a member:
 - **Long Message Support (up to 4,096 characters)**: Group whispers render directly on the recipient's chat timeline ephemerally, overcoming the character limits of inline popup dialogs!
 - **Invisible Input**: Commands are hidden from other members thanks to Bot API `is_ephemeral=True`.
 - **Ephemeral Delivery**: Delivered directly onto the recipient's timeline using `ephemeral_message_parameters`.
-- **Reply Whispers**: Simply reply to any message with `/whisper your secret` to whisper directly without typing usernames or IDs, or add multiple targets: `/whisper @user2 12345678 secret`.
 
 ---
 
